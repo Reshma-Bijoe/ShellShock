@@ -30,6 +30,7 @@ solves this by providing a "Human-In-The-Loop" desktop experience:
 Technical Details :
 
 Technologies/Components Used
+
 For Software:
 
 Languages used: [Python]
