@@ -3,216 +3,133 @@ import pyautogui
 import threading
 import time
 import random
+import pygetwindow as gw
+import game  # Integrates the 60s break game built by Partner A
+
+# -------------------------
+# PERSONALITY ENGINE
+# -------------------------
+def get_roast(category):
+    """Returns a random roast or compliment based on activity."""
+    roasts = {
+        "slacking": [
+            "Watching YouTube instead of coding? Groundbreaking.",
+            "Is this what 'productivity' looks like to you?",
+            "Your compiler is lonely. Get back to work.",
+            "I'm not mad, just disappointed. Okay, I'm a little mad."
+        ],
+        "working": [
+            "Finally, some actual code. Don't stop now.",
+            "Wow, you actually remember how to use an IDE.",
+            "Keep going, human. Those bugs won't write themselves.",
+            "Terminal warrior detected. Respect +1."
+        ]
+    }
+    return random.choice(roasts[category])
 
 # -------------------------
 # WINDOW SETUP
 # -------------------------
 mood = "happy"
 root = tk.Tk()
-root.overrideredirect(True)
-root.attributes("-topmost", True)
+root.overrideredirect(True)  # Makes window borderless
+root.attributes("-topmost", True)  # Keeps pet always on top
 root.config(bg="white")
-root.attributes("-transparentcolor", "white")
+root.attributes("-transparentcolor", "white")  # Creates the 'ghost' effect
 
-window_width = 200
-window_height = 200
-
+window_width, window_height = 200, 200
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
-
-x = screen_width - window_width - 50
-y = screen_height - window_height - 100
-
-root.geometry(f"{window_width}x{window_height}+{x}+{y}")
-
-# -------------------------
-# PET BODY
-# -------------------------
+# Initial position: bottom right
+root.geometry(f"{window_width}x{window_height}+{screen_width-250}+{screen_height-300}")
 
 pet_label = tk.Label(root, text="👁️", font=("Arial", 60), bg="white")
 pet_label.pack(expand=True)
 
-# -------------------------
-# SPEECH BUBBLE
-# -------------------------
-
-speech = tk.Label(
-    root,
-    text="",
-    font=("Arial", 10),
-    bg="yellow",
-    wraplength=180,
-    justify="center"
-)
+speech = tk.Label(root, text="", font=("Arial", 10), bg="yellow", wraplength=180)
 speech.place(x=10, y=10)
 speech.lower()
 
-
 def show_speech(text):
+    """Displays the speech bubble with roasts."""
     speech.config(text=text)
     speech.lift()
-    root.after(3000, lambda: speech.lower())
-
-
-# -------------------------
-# SHAKE FUNCTION
-# -------------------------
+    root.after(4000, lambda: speech.lower())
 
 def shake_window():
+    """Intervention for 'The Stare-Down' analysis paralysis."""
     original_x = root.winfo_x()
     original_y = root.winfo_y()
-
     for _ in range(20):
-        dx = random.randint(-10, 10)
-        dy = random.randint(-10, 10)
+        dx, dy = random.randint(-10, 10), random.randint(-10, 10)
         root.geometry(f"+{original_x + dx}+{original_y + dy}")
         root.update()
         time.sleep(0.02)
-
     root.geometry(f"+{original_x}+{original_y}")
 
-
 # -------------------------
-# IDLE DETECTION
+# INTEGRATED LOGIC LOOPS
 # -------------------------
+def active_monitor():
+    """Tracks windows to roast slacking or trigger the break game."""
+    global mood
+    while True:
+        try:
+            title = gw.getActiveWindowTitle()
+            if title:
+                # Detection for "Social Media Rabbit Hole"
+                if any(x in title for x in ["YouTube", "Chrome", "Reddit"]):
+                    mood = "angry"
+                    show_speech(get_roast("slacking"))
+                    time.sleep(2)
+                    root.withdraw()  # Hide pet during the game
+                    game.start_break_game()  # Launches the 60s game
+                    root.deiconify()  # Reappear after game force-closes
+                    show_speech("Break over. Back to work!")
+                
+                # Detection for "Deep Work"
+                elif any(x in title for x in ["Code", "Visual Studio", "Terminal"]):
+                    mood = "happy"
+                    if random.random() > 0.8:
+                        show_speech(get_roast("working"))
+            
+            pet_label.config(text="👁️" if mood == "happy" else "😠")
+            time.sleep(8)
+        except: 
+            pass
 
 def idle_checker():
-    global mood
-    last_position = pyautogui.position()
+    """Detects inactivity to trigger the 'Shock' intervention."""
+    last_pos = pyautogui.position()
     idle_time = 0
-
     while True:
         time.sleep(1)
-        current_position = pyautogui.position()
-
-        if current_position == last_position:
+        curr_pos = pyautogui.position()
+        if curr_pos == last_pos:
             idle_time += 1
         else:
             idle_time = 0
             mood = "happy"
+        last_pos = curr_pos
 
-        last_position = current_position
-
-        if idle_time >= 10:
+        if idle_time >= 15:  # Intervenes after 15 seconds of no mouse movement
             mood = "angry"
-            show_speech("Stop staring at the screen. Move.")
             shake_window()
-
-        if idle_time >= 20:
-            mood = "sleepy"
-            show_speech("I'm bored... 😴")
-
-        update_mood()
+            show_speech("Stop staring! Do something!")
+            idle_time = 0
 
 # -------------------------
-# FLOATING ANIMATION
+# INTERACTION & START
 # -------------------------
+def start_drag(e): root.x, root.y = e.x, e.y
+def do_drag(e): root.geometry(f"+{root.winfo_pointerx()-root.x}+{root.winfo_pointery()-root.y}")
 
-def float_animation():
-    direction = 1
-    while True:
-        for _ in range(10):
-            current_y = root.winfo_y()
-            root.geometry(f"+{root.winfo_x()}+{current_y + direction}")
-            time.sleep(0.05)
-        direction *= -1
-
-
-# -------------------------
-# DRAG MOVEMENT
-# -------------------------
-
-def start_drag(event):
-    root.x = event.x
-    root.y = event.y
-
-
-def do_drag(event):
-    x = root.winfo_pointerx() - root.x
-    y = root.winfo_pointery() - root.y
-    root.geometry(f"+{x}+{y}")
-
-
-pet_label.bind("<ButtonPress-1>", start_drag)
+pet_label.bind("<ButtonPress-1>", start_drag)  # Drag pet around screen
 pet_label.bind("<B1-Motion>", do_drag)
+root.bind("<Button-3>", lambda e: root.destroy())  # Right-click kill switch
 
-
-# -------------------------
-# HIDDEN CLOSE
-# -------------------------
-
-def check_close(event):
-    if event.x > window_width - 20 and event.y < 20:
-        root.destroy()
-
-
-root.bind("<Button-1>", check_close)
-
-# -------------------------
-# BLINK ANIMATION
-# -------------------------
-
-def blink_animation():
-    while True:
-        time.sleep(random.randint(3, 7))
-        pet_label.config(text="😑")
-        time.sleep(0.2)
-        pet_label.config(text="👁️")
-
-
-def update_mood():
-    if mood == "happy":
-        pet_label.config(text="👁️")
-    elif mood == "angry":
-        pet_label.config(text="😠")
-    elif mood == "sleepy":
-        pet_label.config(text="😴")
-
-import pygetwindow as gw
-
-def check_active_window():
-    global mood
-    while True:
-        try:
-            window = gw.getActiveWindowTitle()
-
-            if window:
-                if "Code" in window:
-                    mood = "happy"
-                    show_speech("Good. Keep coding.")
-                elif "Chrome" in window:
-                    mood = "angry"
-                    show_speech("Why are you in Chrome?")
-                elif "Command Prompt" in window or "Terminal" in window:
-                    mood = "happy"
-                    show_speech("Terminal warrior detected.")
-            
-            update_mood()
-            time.sleep(8)
-
-        except:
-            pass
-
-# -------------------------
-# START THREADS
-# -------------------------
-
-idle_thread = threading.Thread(target=idle_checker, daemon=True)
-idle_thread.start()
-
-float_thread = threading.Thread(target=float_animation, daemon=True)
-float_thread.start()
-
-blink_thread = threading.Thread(target=blink_animation, daemon=True)
-blink_thread.start()
-
-window_thread = threading.Thread(target=check_active_window, daemon=True)
-window_thread.start()
-
-
-
-# -------------------------
-# RUN
-# -------------------------
+# Run threads for constant monitoring
+threading.Thread(target=active_monitor, daemon=True).start()
+threading.Thread(target=idle_checker, daemon=True).start()
 
 root.mainloop()
