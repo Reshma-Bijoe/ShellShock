@@ -1,138 +1,120 @@
+
 import tkinter as tk
 import pyautogui
 import threading
 import time
+import math
 import random
 import pygetwindow as gw
-import game  # Import the game module from game.py
+import game  # Integrates Partner A's game
 
-# -------------------------
-# PERSONALITY ENGINE
-# -------------------------
-def get_roast(category):
-    """Returns a random passive-aggressive roast or deep-work compliment."""
-    roasts = {
-        "slacking": [
-            "Watching YouTube instead of coding? Groundbreaking.",
-            "Is this what 'productivity' looks like to you?",
-            "Your compiler is lonely. Get back to work.",
-            "I'm not mad, just disappointed. Okay, I'm a little mad."
-        ],
-        "working": [
-            "Finally, some actual code. Don't stop now.",
-            "Wow, you actually remember how to use an IDE.",
-            "Keep going, human. Those bugs won't write themselves.",
-            "Terminal warrior detected. Respect +1."
-        ]
-    }
-    return random.choice(roasts[category])
+class ShellShockUI:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.overrideredirect(True)
+        self.root.attributes("-topmost", True)
+        self.root.attributes("-transparentcolor", "white")
+        self.root.config(bg="white")
 
-# -------------------------
-# WINDOW SETUP
-# -------------------------
-mood = "happy"
-root = tk.Tk()
-root.overrideredirect(True) # Borderless window
-root.attributes("-topmost", True) # Always on top
-root.config(bg="white")
-root.attributes("-transparentcolor", "white") # Ghost mode
+        # Layout Settings
+        self.window_w, self.window_h = 280, 180
+        self.screen_w = self.root.winfo_screenwidth()
+        self.screen_h = self.root.winfo_screenheight()
+        self.curr_x = self.screen_w - 300
+        self.curr_y = self.screen_h - 250
+        self.root.geometry(f"{self.window_w}x{self.window_h}+{self.curr_x}+{self.curr_y}")
 
-window_width, window_height = 200, 200
-screen_width = root.winfo_screenwidth()
-screen_height = root.winfo_screenheight()
-# Position bottom right
-root.geometry(f"{window_width}x{window_height}+{screen_width-250}+{screen_height-300}")
+        # --- UI ELEMENTS ---
+        # The Pet (Floating Character)
+        self.pet_label = tk.Label(self.root, text="👁️", font=("Segoe UI Emoji", 60), bg="white")
+        self.pet_label.place(relx=0.7, rely=0.5, anchor="center")
 
-pet_label = tk.Label(root, text="👁️", font=("Arial", 60), bg="white")
-pet_label.pack(expand=True)
+        # Modern Dark Speech Bubble
+        self.speech_bubble = tk.Label(
+            self.root, text="", font=("Verdana", 9, "italic"),
+            bg="#2C3E50", fg="#ECF0F1", wraplength=140,
+            padx=12, pady=8, justify="left"
+        )
+        self.speech_bubble.place(x=10, rely=0.4)
+        self.speech_bubble.lower() # Start hidden
 
-speech = tk.Label(root, text="", font=("Arial", 10), bg="yellow", wraplength=180)
-speech.place(x=10, y=10)
-speech.lower()
+        # --- STATE ---
+        self.angle = 0.0
+        self.mood = "happy"
+        self.setup_interactions()
+        
+        # Start Threads
+        threading.Thread(target=self.logic_loop, daemon=True).start()
+        self.float_animation()
+        self.root.mainloop()
 
-def show_speech(text):
-    """Displays speech bubble for 4 seconds."""
-    speech.config(text=text)
-    speech.lift()
-    root.after(4000, lambda: speech.lower())
+    def show_speech(self, text):
+        self.speech_bubble.config(text=text)
+        self.speech_bubble.lift()
+        # Auto-hide after 4 seconds
+        self.root.after(4000, lambda: self.speech_bubble.lower())
 
-def shake_window():
-    """Physically shakes the pet to break 'The Stare-Down' analysis paralysis."""
-    original_x = root.winfo_x()
-    original_y = root.winfo_y()
-    for _ in range(20):
-        dx, dy = random.randint(-10, 10), random.randint(-10, 10)
-        root.geometry(f"+{original_x + dx}+{original_y + dy}")
-        root.update()
-        time.sleep(0.02)
-    root.geometry(f"+{original_x}+{original_y}")
+    def float_animation(self):
+        """Creates a smooth 'breathing' effect using a Sine wave."""
+        self.angle += 0.08
+        # Formula: y = A * sin(B * t)
+        offset = int(12 * math.sin(self.angle))
+        self.root.geometry(f"+{self.curr_x}+{self.curr_y + offset}")
+        self.root.after(40, self.float_animation)
 
-# -------------------------
-# INTEGRATED LOGIC LOOPS
-# -------------------------
-def active_monitor():
-    """Brain loop: Monitors windows to roast or trigger the Circuit Breaker."""
-    global mood
-    while True:
-        try:
-            title = gw.getActiveWindowTitle()
-            if title:
-                # Detection for 'The Social Media Rabbit Hole'
-                if any(x in title for x in ["YouTube", "Chrome", "Reddit"]):
-                    mood = "angry"
-                    show_speech(get_roast("slacking"))
+    def shake_effect(self):
+        """Aggressive shake for interventions."""
+        for _ in range(15):
+            dx, dy = random.randint(-8, 8), random.randint(-8, 8)
+            self.root.geometry(f"+{self.curr_x + dx}+{self.curr_y + dy}")
+            self.root.update()
+            time.sleep(0.01)
+
+    def logic_loop(self):
+        last_mouse = pyautogui.position()
+        idle_seconds = 0
+        
+        while True:
+            time.sleep(1)
+            # 1. Window Monitoring (The Rabbit Hole)
+            try:
+                active_title = gw.getActiveWindowTitle()
+                if active_title and any(x in active_title for x in ["YouTube", "Chrome", "Reddit", "Twitter"]):
+                    self.pet_label.config(text="😠")
+                    self.show_speech("Distraction detected. Initiating circuit breaker...")
                     time.sleep(2)
-                    
-                    # Force-hide pet and start the 60s game
-                    root.withdraw() 
-                    game.start_break_game() 
-                    
-                    # Pet returns when game force-closes
-                    root.deiconify() 
-                    show_speech("Break over. Back to the grind!")
-                
-                # Detection for 'Deep Work'
-                elif any(x in title for x in ["Code", "Visual Studio", "Terminal", "Command Prompt"]):
-                    mood = "happy"
-                    if random.random() > 0.8:
-                        show_speech(get_roast("working"))
-            
-            pet_label.config(text="👁️" if mood == "happy" else "😠")
-            time.sleep(8)
-        except: pass
+                    self.root.withdraw() # Hide pet
+                    game.start_break_game() # Launch Partner A's game
+                    self.root.deiconify() # Reappear
+                    self.show_speech("Focus restored. Get back to work!")
+                elif active_title and any(x in active_title for x in ["Code", "Studio", "Terminal"]):
+                    self.pet_label.config(text="👁️")
+            except: pass
 
-def idle_checker():
-    """Detects inactivity to trigger the 'Shock' intervention."""
-    last_pos = pyautogui.position()
-    idle_time = 0
-    while True:
-        time.sleep(1)
-        curr_pos = pyautogui.position()
-        if curr_pos == last_pos:
-            idle_time += 1
-        else:
-            idle_time = 0
-            mood = "happy"
-        last_pos = curr_pos
+            # 2. Idle Monitoring (The Stare-Down)
+            curr_mouse = pyautogui.position()
+            if curr_mouse == last_mouse:
+                idle_seconds += 1
+            else:
+                idle_seconds = 0
+            last_mouse = curr_mouse
 
-        if idle_time >= 15: # Intervention for 'The Stare-Down'
-            mood = "angry"
-            shake_window()
-            show_speech("Stop staring! Do something!")
-            idle_time = 0
+            if idle_seconds >= 15:
+                self.pet_label.config(text="😴")
+                self.show_speech("WAKE UP! You've been staring at the screen forever.")
+                self.shake_effect()
+                idle_seconds = 0
 
-# -------------------------
-# INTERACTION & START
-# -------------------------
-def start_drag(e): root.x, root.y = e.x, e.y
-def do_drag(e): root.geometry(f"+{root.winfo_pointerx()-root.x}+{root.winfo_pointery()-root.y}")
+    def setup_interactions(self):
+        """Right-click to exit, Left-click to drag."""
+        self.pet_label.bind("<Button-3>", lambda e: self.root.destroy())
+        def start_drag(e): self.root.x, self.root.y = e.x, e.y
+        def do_drag(e):
+            self.curr_x = self.root.winfo_pointerx() - self.root.x
+            self.curr_y = self.root.winfo_pointery() - self.root.y
+            self.root.geometry(f"+{self.curr_x}+{self.curr_y}")
+        self.pet_label.bind("<ButtonPress-1>", start_drag)
+        self.pet_label.bind("<B1-Motion>", do_drag)
 
-pet_label.bind("<ButtonPress-1>", start_drag) # Click to drag
-pet_label.bind("<B1-Motion>", do_drag)
-root.bind("<Button-3>", lambda e: root.destroy()) # Right-click kill switch
-
-# Start parallel processes
-threading.Thread(target=active_monitor, daemon=True).start()
-threading.Thread(target=idle_checker, daemon=True).start()
-
-root.mainloop()
+if __name__ == "__main__":
+    ShellShockUI()
