@@ -4,13 +4,13 @@ import threading
 import time
 import random
 import pygetwindow as gw
-import game  # Integrates the 60s break game
+import game  # Import the game module from game.py
 
 # -------------------------
 # PERSONALITY ENGINE
 # -------------------------
 def get_roast(category):
-    """Returns a random passive-aggressive roast or compliment."""
+    """Returns a random passive-aggressive roast or deep-work compliment."""
     roasts = {
         "slacking": [
             "Watching YouTube instead of coding? Groundbreaking.",
@@ -40,7 +40,7 @@ root.attributes("-transparentcolor", "white") # Ghost mode
 window_width, window_height = 200, 200
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
-# Initial position: bottom right
+# Position bottom right
 root.geometry(f"{window_width}x{window_height}+{screen_width-250}+{screen_height-300}")
 
 pet_label = tk.Label(root, text="👁️", font=("Arial", 60), bg="white")
@@ -57,7 +57,7 @@ def show_speech(text):
     root.after(4000, lambda: speech.lower())
 
 def shake_window():
-    """Intervention for 'The Stare-Down' analysis paralysis."""
+    """Physically shakes the pet to break 'The Stare-Down' analysis paralysis."""
     original_x = root.winfo_x()
     original_y = root.winfo_y()
     for _ in range(20):
@@ -71,7 +71,7 @@ def shake_window():
 # INTEGRATED LOGIC LOOPS
 # -------------------------
 def active_monitor():
-    """Tracks windows to roast slacking or trigger the break game."""
+    """Brain loop: Monitors windows to roast or trigger the Circuit Breaker."""
     global mood
     while True:
         try:
@@ -83,25 +83,26 @@ def active_monitor():
                     show_speech(get_roast("slacking"))
                     time.sleep(2)
                     
-                    root.withdraw() # Hide pet during game
-                    game.start_break_game() # Call Partner A's game
-                    root.deiconify() # Reappear after 60s
+                    # Force-hide pet and start the 60s game
+                    root.withdraw() 
+                    game.start_break_game() 
                     
-                    show_speech("Break over. Back to work!")
+                    # Pet returns when game force-closes
+                    root.deiconify() 
+                    show_speech("Break over. Back to the grind!")
                 
                 # Detection for 'Deep Work'
-                elif any(x in title for x in ["Code", "Visual Studio", "Terminal"]):
+                elif any(x in title for x in ["Code", "Visual Studio", "Terminal", "Command Prompt"]):
                     mood = "happy"
                     if random.random() > 0.8:
                         show_speech(get_roast("working"))
             
             pet_label.config(text="👁️" if mood == "happy" else "😠")
             time.sleep(8)
-        except: 
-            pass
+        except: pass
 
 def idle_checker():
-    """Detects inactivity to trigger the 'Shock'."""
+    """Detects inactivity to trigger the 'Shock' intervention."""
     last_pos = pyautogui.position()
     idle_time = 0
     while True:
@@ -114,10 +115,10 @@ def idle_checker():
             mood = "happy"
         last_pos = curr_pos
 
-        if idle_time >= 15: # Intervention threshold
+        if idle_time >= 15: # Intervention for 'The Stare-Down'
             mood = "angry"
             shake_window()
-            show_speech("Stop staring! Move!")
+            show_speech("Stop staring! Do something!")
             idle_time = 0
 
 # -------------------------
@@ -130,6 +131,7 @@ pet_label.bind("<ButtonPress-1>", start_drag) # Click to drag
 pet_label.bind("<B1-Motion>", do_drag)
 root.bind("<Button-3>", lambda e: root.destroy()) # Right-click kill switch
 
+# Start parallel processes
 threading.Thread(target=active_monitor, daemon=True).start()
 threading.Thread(target=idle_checker, daemon=True).start()
 
