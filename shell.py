@@ -7,7 +7,7 @@ import random
 import subprocess
 import sys
 from PIL import Image, ImageTk
-from pynput import mouse, keyboard  # NEW: Required for scroll/key detection
+from pynput import mouse, keyboard  # MUST HAVE: pip install pynput
 
 class ShellShockUI:
     def __init__(self):
@@ -24,7 +24,7 @@ class ShellShockUI:
         self.curr_y = self.screen_h - 250
         self.root.geometry(f"350x200+{self.curr_x}+{self.curr_y}")
 
-        # --- THE FACE ---
+        # --- THE FACE (Emoji Only) ---
         self.pet_label = tk.Label(self.root, text="🐱", font=("Segoe UI Emoji", 60), bg="white")
         self.pet_label.place(relx=0.8, rely=0.5, anchor="center")
 
@@ -52,21 +52,22 @@ class ShellShockUI:
         threading.Thread(target=self.idle_monitor, daemon=True).start()
         self.float_animation()
 
-    def start_input_listeners(self):
-        """Listens for ANY user activity to reset the timer."""
-        def reset_timer(*args):
-            self.last_activity_time = time.time()
+    def reset_timer(self, *args):
+        """Resets the idle timer whenever you do ANYTHING."""
+        self.last_activity_time = time.time()
 
+    def start_input_listeners(self):
+        """Listens for ANY user activity (Scroll, Type, Click)."""
         # Mouse Listener (Moves, Clicks, Scrolls)
         self.mouse_listener = mouse.Listener(
-            on_move=reset_timer,
-            on_click=reset_timer,
-            on_scroll=reset_timer
+            on_move=self.reset_timer,
+            on_click=self.reset_timer,
+            on_scroll=self.reset_timer  # <--- This fixes the scrolling issue
         )
         
         # Keyboard Listener (Any key press)
         self.key_listener = keyboard.Listener(
-            on_press=reset_timer
+            on_press=self.reset_timer
         )
 
         self.mouse_listener.start()
@@ -81,10 +82,11 @@ class ShellShockUI:
         if message:
             self.speech_bubble.config(text=message)
             self.speech_bubble.lift()
+            # Bubble stays for 5 seconds
             self.root.after(5000, lambda: self.speech_bubble.lower())
 
     def trigger_punishment(self):
-        """Hides the cat and launches Flappy Bird."""
+        """Hides the face and launches Flappy Bird."""
         if self.is_distracted: return
         self.is_distracted = True
         
@@ -103,12 +105,11 @@ class ShellShockUI:
 
         self.root.deiconify() 
         self.is_distracted = False
-        # Reset timer so we don't immediately shake after game
         self.last_activity_time = time.time() 
         self.update_face("🐱", "Hope that reset your brain.")
 
     def idle_monitor(self):
-        """Checks if user has been 100% idle (no scroll, keys, or mouse) for 20s."""
+        """Checks if user has been 100% idle for 20s."""
         while True:
             time.sleep(1)
             if self.is_distracted: continue
@@ -116,14 +117,14 @@ class ShellShockUI:
             # Check time elapsed since last activity
             idle_duration = time.time() - self.last_activity_time
 
-            if idle_duration >= 20:
+            if idle_duration >= 60:
                 self.pet_label.config(text="😴")
                 # Trigger shake every 5 seconds if still idle
                 if int(idle_duration) % 5 == 0: 
                     self.shake_effect() 
 
     def shake_effect(self):
-        """Captures the screen and shakes it to wake up the user."""
+        """Captures the screen and shakes it."""
         try:
             screenshot = pyautogui.screenshot()
             w, h = screenshot.size

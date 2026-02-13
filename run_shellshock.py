@@ -5,28 +5,47 @@ from main import ShellShockBrain, CatBrain
 
 def run_logic(pet, brain, cat_personality):
     print("🧠 Brain Module Started...")
+    
+    # --- 1. WELCOME MESSAGE ---
+    # Show this immediately when the app starts
+    pet.update_face("👋", "Welcome back, Reshma! I'm watching you...")
+    time.sleep(5) # Keep the welcome message for 5 seconds
+
+    # Timers to control frequency
+    last_compliment_time = 0
+    COMPLIMENT_GAP = 100  # <--- CHANGED: Compliments appear every 100 seconds (approx 1.5 mins)
+
     while True:
-        # 1. Analyze the Screen
-        mood_code, _ = brain.analyze_activity() # Returns "HAPPY", "ANGRY", "NEUTRAL"
+        # --- 2. ANALYZE ACTIVITY ---
+        mood_code, activity_msg = brain.analyze_activity() 
+        current_time = time.time()
         
-        # 2. Decide on Action based on Mood
+        # --- 3. DECIDE REACTION ---
+        
+        # CASE A: DISTRACTION (Immediate Reaction)
         if mood_code == "ANGRY":
-            # SLACKING DETECTED -> Trigger Punishment
             pet.trigger_punishment()
-            time.sleep(5) # Wait a bit before checking again
+            time.sleep(2) # Wait a bit after punishment before checking again
             
+        # CASE B: WORKING (Delayed Reaction)
         elif mood_code == "HAPPY":
-            # WORKING -> Send Compliment
-            emoji = "😺" # Happy Cat
-            _, message = cat_personality.get_cat_reaction("Working")
-            pet.update_face(emoji, message)
-            
+            # Only compliment if enough time has passed (The "Gap")
+            if current_time - last_compliment_time > COMPLIMENT_GAP:
+                emoji = "😺" 
+                # Use the Face (Emoji)
+                _, message = cat_personality.get_cat_reaction("Working")
+                pet.update_face(emoji, message)
+                last_compliment_time = current_time
+            else:
+                # If working but in the "gap", show Happy Face with NO text
+                pet.update_face("😺", "") 
+                
+        # CASE C: IDLE/NEUTRAL
         else:
-            # NEUTRAL/CONFUSED -> Just Observe
-            emoji = "🧐" # Monocle/Observing
-            pet.update_face(emoji, "") # No text, just watching
+            pet.update_face("🧐", "") # Just watching, no text
             
-        time.sleep(3) # Check window every 3 seconds
+        # Check every 2 seconds (Fast enough to catch YouTube)
+        time.sleep(2) 
 
 if __name__ == "__main__":
     # Initialize Components
@@ -34,7 +53,7 @@ if __name__ == "__main__":
     brain = ShellShockBrain()
     cat = CatBrain()
 
-    # Run the Logic in a separate thread so UI doesn't freeze
+    # Run the Logic in a separate thread
     logic_thread = threading.Thread(target=run_logic, args=(pet, brain, cat), daemon=True)
     logic_thread.start()
 
