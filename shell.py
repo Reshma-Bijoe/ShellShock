@@ -4,13 +4,13 @@ import threading
 import time
 import random
 import pygetwindow as gw
-import game  # Import the game module from game.py
+import game  # Integrates the 60s break game
 
 # -------------------------
 # PERSONALITY ENGINE
 # -------------------------
 def get_roast(category):
-    """Returns a random passive-aggressive roast or deep-work compliment."""
+    """Returns a random passive-aggressive roast or compliment."""
     roasts = {
         "slacking": [
             "Watching YouTube instead of coding? Groundbreaking.",
@@ -32,7 +32,7 @@ def get_roast(category):
 # -------------------------
 mood = "happy"
 root = tk.Tk()
-root.overrideredirect(True) # Borderless
+root.overrideredirect(True) # Borderless window
 root.attributes("-topmost", True) # Always on top
 root.config(bg="white")
 root.attributes("-transparentcolor", "white") # Ghost mode
@@ -40,7 +40,7 @@ root.attributes("-transparentcolor", "white") # Ghost mode
 window_width, window_height = 200, 200
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
-# Position bottom right
+# Initial position: bottom right
 root.geometry(f"{window_width}x{window_height}+{screen_width-250}+{screen_height-300}")
 
 pet_label = tk.Label(root, text="👁️", font=("Arial", 60), bg="white")
@@ -57,7 +57,7 @@ def show_speech(text):
     root.after(4000, lambda: speech.lower())
 
 def shake_window():
-    """Physically shakes the pet to break 'The Stare-Down' analysis paralysis."""
+    """Intervention for 'The Stare-Down' analysis paralysis."""
     original_x = root.winfo_x()
     original_y = root.winfo_y()
     for _ in range(20):
@@ -71,38 +71,37 @@ def shake_window():
 # INTEGRATED LOGIC LOOPS
 # -------------------------
 def active_monitor():
-    """Brain loop: Monitors windows to roast or trigger the Circuit Breaker."""
+    """Tracks windows to roast slacking or trigger the break game."""
     global mood
     while True:
         try:
             title = gw.getActiveWindowTitle()
             if title:
-                # Detection for "Social Media Rabbit Hole"
+                # Detection for 'The Social Media Rabbit Hole'
                 if any(x in title for x in ["YouTube", "Chrome", "Reddit"]):
                     mood = "angry"
                     show_speech(get_roast("slacking"))
                     time.sleep(2)
                     
-                    # Force-hide pet and start the 60s game
-                    root.withdraw() 
-                    game.start_break_game() 
+                    root.withdraw() # Hide pet during game
+                    game.start_break_game() # Call Partner A's game
+                    root.deiconify() # Reappear after 60s
                     
-                    # Pet returns when game force-closes
-                    root.deiconify() 
-                    show_speech("Break over. Back to the grind!")
+                    show_speech("Break over. Back to work!")
                 
-                # Detection for "Deep Work"
-                elif any(x in title for x in ["Code", "Visual Studio", "Terminal", "Command Prompt"]):
+                # Detection for 'Deep Work'
+                elif any(x in title for x in ["Code", "Visual Studio", "Terminal"]):
                     mood = "happy"
                     if random.random() > 0.8:
                         show_speech(get_roast("working"))
             
             pet_label.config(text="👁️" if mood == "happy" else "😠")
             time.sleep(8)
-        except: pass
+        except: 
+            pass
 
 def idle_checker():
-    """Detects inactivity to trigger the 'Shock' intervention."""
+    """Detects inactivity to trigger the 'Shock'."""
     last_pos = pyautogui.position()
     idle_time = 0
     while True:
@@ -115,10 +114,10 @@ def idle_checker():
             mood = "happy"
         last_pos = curr_pos
 
-        if idle_time >= 15: # Intervention for 'The Stare-Down'
+        if idle_time >= 15: # Intervention threshold
             mood = "angry"
             shake_window()
-            show_speech("Stop staring! Do something!")
+            show_speech("Stop staring! Move!")
             idle_time = 0
 
 # -------------------------
@@ -131,7 +130,6 @@ pet_label.bind("<ButtonPress-1>", start_drag) # Click to drag
 pet_label.bind("<B1-Motion>", do_drag)
 root.bind("<Button-3>", lambda e: root.destroy()) # Right-click kill switch
 
-# Start parallel processes
 threading.Thread(target=active_monitor, daemon=True).start()
 threading.Thread(target=idle_checker, daemon=True).start()
 
