@@ -1,120 +1,42 @@
-
-import tkinter as tk
-import pyautogui
-import threading
+import pygame
 import time
-import math
-import random
-import pygetwindow as gw
-import game  # Integrates Partner A's game
+import sys
 
-class ShellShockUI:
-    def __init__(self):
-        self.root = tk.Tk()
-        self.root.overrideredirect(True)
-        self.root.attributes("-topmost", True)
-        self.root.attributes("-transparentcolor", "white")
-        self.root.config(bg="white")
+def start_break_game():
+    pygame.init()
+    screen = pygame.display.set_mode((400, 600))
+    pygame.display.set_caption("ShellShock Break")
+    
+    start_time = time.time()
+    font = pygame.font.SysFont("Arial", 24)
 
-        # Layout Settings
-        self.window_w, self.window_h = 280, 180
-        self.screen_w = self.root.winfo_screenwidth()
-        self.screen_h = self.root.winfo_screenheight()
-        self.curr_x = self.screen_w - 300
-        self.curr_y = self.screen_h - 250
-        self.root.geometry(f"{self.window_w}x{self.window_h}+{self.curr_x}+{self.curr_y}")
+    # Updated time limit to 600 seconds (10 minutes)
+    TIME_LIMIT = 600 
 
-        # --- UI ELEMENTS ---
-        # The Pet (Floating Character)
-        self.pet_label = tk.Label(self.root, text="👁️", font=("Segoe UI Emoji", 60), bg="white")
-        self.pet_label.place(relx=0.7, rely=0.5, anchor="center")
-
-        # Modern Dark Speech Bubble
-        self.speech_bubble = tk.Label(
-            self.root, text="", font=("Verdana", 9, "italic"),
-            bg="#2C3E50", fg="#ECF0F1", wraplength=140,
-            padx=12, pady=8, justify="left"
-        )
-        self.speech_bubble.place(x=10, rely=0.4)
-        self.speech_bubble.lower() # Start hidden
-
-        # --- STATE ---
-        self.angle = 0.0
-        self.mood = "happy"
-        self.setup_interactions()
+    running = True
+    while running:
+        # 1. Check the Kill-Switch
+        elapsed = time.time() - start_time
+        remaining = max(0, TIME_LIMIT - int(elapsed))
         
-        # Start Threads
-        threading.Thread(target=self.logic_loop, daemon=True).start()
-        self.float_animation()
-        self.root.mainloop()
+        if remaining <= 0:
+            print("Time's up! Back to work.")
+            running = False
 
-    def show_speech(self, text):
-        self.speech_bubble.config(text=text)
-        self.speech_bubble.lift()
-        # Auto-hide after 4 seconds
-        self.root.after(4000, lambda: self.speech_bubble.lower())
+        # 2. Event Handling
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
-    def float_animation(self):
-        """Creates a smooth 'breathing' effect using a Sine wave."""
-        self.angle += 0.08
-        # Formula: y = A * sin(B * t)
-        offset = int(12 * math.sin(self.angle))
-        self.root.geometry(f"+{self.curr_x}+{self.curr_y + offset}")
-        self.root.after(40, self.float_animation)
-
-    def shake_effect(self):
-        """Aggressive shake for interventions."""
-        for _ in range(15):
-            dx, dy = random.randint(-8, 8), random.randint(-8, 8)
-            self.root.geometry(f"+{self.curr_x + dx}+{self.curr_y + dy}")
-            self.root.update()
-            time.sleep(0.01)
-
-    def logic_loop(self):
-        last_mouse = pyautogui.position()
-        idle_seconds = 0
+        # 3. Drawing the Game
+        screen.fill((30, 30, 30))
+        # Displays the updated countdown starting from 600s
+        timer_text = font.render(f"Break ends in: {remaining}s", True, (255, 255, 255))
+        screen.blit(timer_text, (100, 280))
         
-        while True:
-            time.sleep(1)
-            # 1. Window Monitoring (The Rabbit Hole)
-            try:
-                active_title = gw.getActiveWindowTitle()
-                if active_title and any(x in active_title for x in ["YouTube", "Chrome", "Reddit", "Twitter"]):
-                    self.pet_label.config(text="😠")
-                    self.show_speech("Distraction detected. Initiating circuit breaker...")
-                    time.sleep(2)
-                    self.root.withdraw() # Hide pet
-                    game.start_break_game() # Launch Partner A's game
-                    self.root.deiconify() # Reappear
-                    self.show_speech("Focus restored. Get back to work!")
-                elif active_title and any(x in active_title for x in ["Code", "Studio", "Terminal"]):
-                    self.pet_label.config(text="👁️")
-            except: pass
+        pygame.display.flip()
 
-            # 2. Idle Monitoring (The Stare-Down)
-            curr_mouse = pyautogui.position()
-            if curr_mouse == last_mouse:
-                idle_seconds += 1
-            else:
-                idle_seconds = 0
-            last_mouse = curr_mouse
-
-            if idle_seconds >= 15:
-                self.pet_label.config(text="😴")
-                self.show_speech("WAKE UP! You've been staring at the screen forever.")
-                self.shake_effect()
-                idle_seconds = 0
-
-    def setup_interactions(self):
-        """Right-click to exit, Left-click to drag."""
-        self.pet_label.bind("<Button-3>", lambda e: self.root.destroy())
-        def start_drag(e): self.root.x, self.root.y = e.x, e.y
-        def do_drag(e):
-            self.curr_x = self.root.winfo_pointerx() - self.root.x
-            self.curr_y = self.root.winfo_pointery() - self.root.y
-            self.root.geometry(f"+{self.curr_x}+{self.curr_y}")
-        self.pet_label.bind("<ButtonPress-1>", start_drag)
-        self.pet_label.bind("<B1-Motion>", do_drag)
+    pygame.quit()
 
 if __name__ == "__main__":
-    ShellShockUI()
+    start_break_game()
