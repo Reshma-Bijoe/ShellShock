@@ -1,25 +1,42 @@
 import time
-from shell import DesktopPet
-from main import ShellShockBrain
 import threading
+from shell import ShellShockUI
+from main import ShellShockBrain, CatBrain
 
-def run_logic(pet, brain):
+def run_logic(pet, brain, cat_personality):
+    print("🧠 Brain Module Started...")
     while True:
-        # 1. Brain analyzes the screen
-        mood, message = brain.analyze_activity()
+        # 1. Analyze the Screen
+        mood_code, _ = brain.analyze_activity() # Returns "HAPPY", "ANGRY", "NEUTRAL"
         
-        # 2. Shell updates the UI
-        pet.update_text(message)
-        
-        # 3. Handle specific triggers (like shaking) later
-        time.sleep(2)
+        # 2. Decide on Action based on Mood
+        if mood_code == "ANGRY":
+            # SLACKING DETECTED -> Trigger Punishment
+            pet.trigger_punishment()
+            time.sleep(5) # Wait a bit before checking again
+            
+        elif mood_code == "HAPPY":
+            # WORKING -> Send Compliment
+            emoji = "😺" # Happy Cat
+            _, message = cat_personality.get_cat_reaction("Working")
+            pet.update_face(emoji, message)
+            
+        else:
+            # NEUTRAL/CONFUSED -> Just Observe
+            emoji = "🧐" # Monocle/Observing
+            pet.update_face(emoji, "") # No text, just watching
+            
+        time.sleep(3) # Check window every 3 seconds
 
-# Start UI and Logic at the same time
-pet = DesktopPet()
-brain = ShellShockBrain()
+if __name__ == "__main__":
+    # Initialize Components
+    pet = ShellShockUI()
+    brain = ShellShockBrain()
+    cat = CatBrain()
 
-# We run the logic in a separate 'thread' so the UI doesn't freeze
-logic_thread = threading.Thread(target=run_logic, args=(pet, brain), daemon=True)
-logic_thread.start()
+    # Run the Logic in a separate thread so UI doesn't freeze
+    logic_thread = threading.Thread(target=run_logic, args=(pet, brain, cat), daemon=True)
+    logic_thread.start()
 
-pet.run()
+    # Start the UI
+    pet.run()
