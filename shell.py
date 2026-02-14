@@ -246,17 +246,22 @@ class ShellShockUI:
             
             self.root.withdraw() 
             try:
-                base_path = os.path.dirname(os.path.abspath(__file__))
-                game_folder = os.path.join(base_path, "flappy-bird-main")
-                if not os.path.exists(game_folder): raise FileNotFoundError(f"Missing: {game_folder}")
-                
-                # --- EXE FIX: Determine which python to use ---
+                # --- PATH FIX: Check if we are running as an EXE or a Script ---
                 if getattr(sys, 'frozen', False):
-                    # If we are running as an .exe, use system python
+                    # If EXE: The "base" is the folder where the .exe file lives
+                    base_path = os.path.dirname(sys.executable)
+                    # Also, use the system 'python' command since the exe can't run scripts directly
                     python_executable = "python"
                 else:
-                    # If running from code, use the current interpreter
+                    # If Script: The "base" is the folder where shell.py lives
+                    base_path = os.path.dirname(os.path.abspath(__file__))
                     python_executable = sys.executable
+
+                game_folder = os.path.join(base_path, "flappy-bird-main")
+                
+                # Check if folder exists to give a clear error if it's missing
+                if not os.path.exists(game_folder): 
+                    raise FileNotFoundError(f"Missing game folder at: {game_folder}")
 
                 # Run the game
                 subprocess.run([python_executable, "main.py"], cwd=game_folder, check=True)
@@ -266,11 +271,14 @@ class ShellShockUI:
                 time.sleep(1)
             except Exception as e:
                 self.root.deiconify()
+                # Print the error so you can see it in the face bubble
                 self.update_face("😿", f"Error: {str(e)[:20]}...")
+                print(f"Full Error: {e}") # Print to console for debugging
 
         self.is_distracted = False
         self.last_activity_time = time.time() 
         
+        # Resume Timer Logic
         if next_mode == "focus":
             self.start_focus_mode()
         elif self.is_focus_mode:
