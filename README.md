@@ -107,8 +107,7 @@ Application Workflow Diagram
 This diagram explains the step-by-step flow of how a user interacts with ShellShock, from setting the timer to handling the game punishment.
 
 Code snippet
-![work flow](image-12.png)
-
+![work flow](image-13.png)
 *App Flow Description* :
 Startup: User sets "Focus Time" and "Break Time" (e.g., 25min / 5min).
 
