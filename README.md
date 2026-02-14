@@ -52,7 +52,7 @@ Implements a Pomodoro-style timer system that allows users to set custom "Focus"
 Feature 4: Gamified "Punishments" & Breaks
 Integrates a full "Flappy Bird" clone (located in flappy-bird-main). This game is launched automatically as a "punishment" for severe distraction or offered as an optional leisure activity when a scheduled break begins.
 
-Implementation :
+*Implementation *:
 For Software:
 Installation
  # Clone the repository
@@ -68,7 +68,7 @@ Run
 # Run the main application
 python shell.py
 
-SCREENSHOTS :
+*SCREENSHOTS* :
 
 ![Take-a-Break screenshot](image-1.png)
 ![choice Screenshot](image-2.png)
@@ -80,55 +80,11 @@ SCREENSHOTS :
 ![flappy bird game](image-9.png)
 ![flappy bird starting page](image-10.png)
 
-System Architecture :
+*System Architecture* :
 
 Diagram
  
- graph TD
-    subgraph "User Environment"
-        User((User))
-        InputHardware[Keyboard & Mouse]
-    end
-
-    subgraph "ShellShock Application (shell.py)"
-        direction TB
-        
-        GUI[<b>GUI Controller</b><br/>Tkinter Overlay]
-        
-        subgraph "Background Threads"
-            Listener[<b>Input Listener</b><br/>Pynput Module]
-            Logic[<b>Logic Engine</b><br/>Idle Monitor & Timer]
-        end
-        
-        Action[<b>Action Handler</b><br/>PyAutoGUI & OS]
-    end
-
-    subgraph "External Modules"
-        GameProcess[<b>Game Subprocess</b><br/>Flappy Bird (Pygame)]
-        Assets[(<b>Assets</b><br/>Images/Sounds)]
-    end
-
-    %% Data Flow Connections
-    User -->|Physical Activity| InputHardware
-    InputHardware -->|Global Events| Listener
-    
-    Listener -->|Update Activity Timestamp| Logic
-    Logic -->|Check Thresholds| Logic
-    
-    Logic -- "State Update (Happy/Angry)" --> GUI
-    Logic -- "Timer Tick" --> GUI
-    
-    Logic -- "Idle Detected" --> Action
-    Action -- "1. Screen Shake" --> GUI
-    Action -- "2. Launch Punishment" --> GameProcess
-    
-    GUI -->|Visual Feedback| User
-    GameProcess -->|Interactive Gameplay| User
-    
-    Assets -.->|Load Sprites| GUI
-    Assets -.->|Load Game Assets| GameProcess
-
-Explanation of the Diagram (For your Report/Presentation)
+![System architecture](image-11.png)
 User Input: The system starts with the user interacting with their Keyboard & Mouse.
 
 Input Listener: The Pynput module runs in a background thread, silently intercepting these global events to track when the user is active without interfering with their work.
@@ -147,41 +103,13 @@ Screen Shake: If ignored, PyAutoGUI takes a screenshot and shakes it to visually
 
 Game Launcher: If the user fails a session or enters a break, the system uses the subprocess module to spawn a completely separate process for the Flappy Bird game.
 
-1. Application Workflow Diagram
+Application Workflow Diagram
 This diagram explains the step-by-step flow of how a user interacts with ShellShock, from setting the timer to handling the game punishment.
 
 Code snippet
-graph TD
-    Start([Start Application]) --> Setup[User Sets Focus & Break Time]
-    Setup --> FocusState[<b>Focus Mode</b><br/>Timer Running (Red)]
-    
-    FocusState --> Monitor{User Active?}
-    
-    %% Active Path
-    Monitor -- Yes --> ResetIdle[Reset Idle Timer]
-    ResetIdle --> FocusState
-    
-    %% Idle Path
-    Monitor -- No (Idle > 60s) --> Warning[Cat Becomes Angry/Sleepy]
-    Warning --> Shake{Still Idle?}
-    
-    Shake -- Yes --> ScreenShake[<b>Action:</b> Screen Shake Effect]
-    ScreenShake --> Punishment[<b>Action:</b> Launch Flappy Bird]
-    Punishment --> GameEnd{Game Over}
-    GameEnd --> FocusState
-    
-    %% Timer Path
-    FocusState --> TimerCheck{Timer == 0?}
-    TimerCheck -- No --> FocusState
-    TimerCheck -- Yes --> Prompt[Prompt: Rest, Play, or Continue?]
-    
-    Prompt --> BreakState[<b>Break Mode</b><br/>Timer Running (Green)]
-    BreakState --> TimerCheckBreak{Timer == 0?}
-    TimerCheckBreak -- Yes --> FocusState
+![work flow](image-12.png)
 
-Additional Documentation :
-
-App Flow
+*App Flow Description* :
 Startup: User sets "Focus Time" and "Break Time" (e.g., 25min / 5min).
 
 Focus Phase: - The Cat Widget floats on top of all windows.
@@ -197,13 +125,13 @@ Break Phase:
     User can play Flappy Bird or relax.
     Cat wears sunglasses (Cool Mode).
 
-Project Demo :
+*Project Demo :*
 
 Video
 Link : https://drive.google.com/file/d/15sX4NM6y57oXQ6nNDbLWIRxLmRZh5r7K/view?usp=drivesdk
 A walkthrough demonstrating the focus timer setup, the idle detection (screen shake), and the transition into the Flappy Bird game.
 
-Team Contributions :
+*Team Contributions :*
 
 1.Nayana Binu: Game Integration, Assets & Build
 
