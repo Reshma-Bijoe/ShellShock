@@ -234,7 +234,7 @@ class ShellShockUI:
         self.trigger_punishment(manual=True, next_mode=next_mode)
 
     def trigger_punishment(self, manual=False, next_mode=None):
-        if self.is_distracted and not manual: return # Avoid double trigger unless manual override
+        if self.is_distracted and not manual: return 
         self.is_distracted = True
         
         # --- MANUAL GAME ---
@@ -249,7 +249,18 @@ class ShellShockUI:
                 base_path = os.path.dirname(os.path.abspath(__file__))
                 game_folder = os.path.join(base_path, "flappy-bird-main")
                 if not os.path.exists(game_folder): raise FileNotFoundError(f"Missing: {game_folder}")
-                subprocess.run([sys.executable, "main.py"], cwd=game_folder, check=True)
+                
+                # --- EXE FIX: Determine which python to use ---
+                if getattr(sys, 'frozen', False):
+                    # If we are running as an .exe, use system python
+                    python_executable = "python"
+                else:
+                    # If running from code, use the current interpreter
+                    python_executable = sys.executable
+
+                # Run the game
+                subprocess.run([python_executable, "main.py"], cwd=game_folder, check=True)
+                
                 self.root.deiconify() 
                 self.update_face("😹", "Game Over!")
                 time.sleep(1)
@@ -260,14 +271,12 @@ class ShellShockUI:
         self.is_distracted = False
         self.last_activity_time = time.time() 
         
-        # Resume Timer Logic based on what happened
         if next_mode == "focus":
             self.start_focus_mode()
         elif self.is_focus_mode:
             self.update_face("😺", "Okay, back to work.")
         else:
             self.update_face("😎", "Chilling...")
-
     def idle_monitor(self):
         """Monitors for lack of mouse/keyboard activity."""
         while True:
@@ -342,6 +351,8 @@ class ShellShockUI:
         
     def run(self):
         self.root.mainloop()
+    
+    
 
 if __name__ == "__main__":
     ShellShockUI().run()
