@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import simpledialog, messagebox # <--- Added messagebox
+from tkinter import simpledialog, messagebox 
 import pyautogui
 import threading
 import time
@@ -9,6 +9,7 @@ import subprocess
 import sys
 import os 
 from pynput import mouse, keyboard
+from PIL import Image, ImageTk
 
 class ShellShockUI:
     def __init__(self):
@@ -30,13 +31,22 @@ class ShellShockUI:
         self.pet_label.place(relx=0.8, rely=0.5, anchor="center")
         self.pet_label.config(cursor="hand2") 
 
-        # --- THE COUNTDOWN TIMER ---
+        # --- QUIT BUTTON ---
+        self.quit_btn = tk.Button(
+            self.root, text="X", font=("Arial", 8, "bold"), 
+            bg="black", fg="white", bd=0, padx=5, pady=0, cursor="hand2",
+            activebackground="#333333", activeforeground="white",
+            command=self.quit_program
+        )
+        self.quit_btn.place(relx=0.98, rely=0.02, anchor="ne")
+        self.quit_btn.lift()
+
+        # --- THE TIMER LABEL ---
         self.timer_label = tk.Label(
             self.root, text="00:00", font=("Consolas", 16, "bold"), 
             fg="red", bg="white"
         )
         self.timer_label.place(relx=0.8, rely=0.85, anchor="center")
-        self.timer_label.place_forget() 
 
         # --- SPEECH BUBBLE ---
         self.speech_bubble = tk.Label(
@@ -52,33 +62,148 @@ class ShellShockUI:
         self.last_activity_time = time.time()
         self.is_distracted = False 
         self.angle = 0.0
+        self.mouse_listener = None
+        self.key_listener = None
+        
+        # --- POMODORO VARIABLES ---
+        self.is_focus_mode = True
+        self.focus_duration = 25 * 60 
+        self.break_duration = 5 * 60  
+        self.current_timer = self.focus_duration
+        self.timer_running = False
 
         self.start_input_listeners()
         self.setup_interactions()
         
+        # Start Background Threads
         threading.Thread(target=self.idle_monitor, daemon=True).start()
         self.float_animation()
+        
+        # --- STARTUP SEQUENCE ---
+        self.root.after(100, self.setup_pomodoro)
 
-    def ask_slack_limit_safe(self):
-        self.popup_result = 300 
-        self.popup_finished = threading.Event() 
+    def setup_pomodoro(self):
+        """Asks user for Focus and Break times, then starts the timer."""
+        self.root.withdraw()
+        
+        f_min = simpledialog.askinteger("Pomodoro Setup", "Enter Focus Time (minutes):", 
+                                       parent=self.root, minvalue=1, maxvalue=120, initialvalue=25)
+        b_min = simpledialog.askinteger("Pomodoro Setup", "Enter Break Time (minutes):", 
+                                       parent=self.root, minvalue=1, maxvalue=60, initialvalue=5)
+        
+        self.root.deiconify()
+        
+        if f_min: self.focus_duration = f_min * 60
+        if b_min: self.break_duration = b_min * 60
+        
+        self.current_timer = self.focus_duration
+        self.is_focus_mode = True
+        self.timer_running = True
+        
+        self.update_face("😺", f"Let's focus for {f_min} mins!")
+        self.run_timer_tick()
 
-        def show_popup_on_main_thread():
-            self.root.withdraw() 
-            minutes = simpledialog.askinteger(
-                "YouTube Allowance", 
-                "Distraction Detected!\nHow many minutes do you need?",
-                parent=self.root,
-                minvalue=1, maxvalue=120, initialvalue=5
-            )
-            self.root.deiconify() 
-            if minutes:
-                self.popup_result = minutes * 60
-            self.popup_finished.set() 
+    def run_timer_tick(self):
+        """Main timer loop handling Focus/Break logic."""
+        if not self.timer_running: return
 
-        self.root.after(0, show_popup_on_main_thread)
-        self.popup_finished.wait()
-        return self.popup_result
+        # Update Display
+        mins, secs = divmod(self.current_timer, 60)
+        self.timer_label.config(text=f"{mins:02}:{secs:02}")
+        
+        # Color Logic: Red for Focus, Green for Break
+        color = "red" if self.is_focus_mode else "green"
+        self.timer_label.config(fg=color)
+
+        if self.current_timer > 0:
+            self.current_timer -= 1
+            self.root.after(1000, self.run_timer_tick)
+        else:
+            self.switch_mode()
+
+    def switch_mode(self):
+        """Switches between Focus and Break modes."""
+        if self.is_focus_mode:
+            # Focus Just Ended -> ASK THE USER WHAT TO DO
+            self.timer_running = False # Pause timer while asking
+            self.show_break_options()
+        else:
+            # Break Just Ended -> Auto-switch to Focus
+            self.start_focus_mode()
+
+    def show_break_options(self):
+        """Shows a custom dialog for Break Options: Rest, Play, or Continue."""
+        self.is_distracted = True # Pause idle checks
+        
+        # Create a custom popup window
+        popup = tk.Toplevel(self.root)
+        popup.title("Time's Up!")
+        popup.geometry("300x180")
+        
+        # Center the popup on screen
+        x = (self.screen_w // 2) - 150
+        y = (self.screen_h // 2) - 90
+        popup.geometry(f"+{x}+{y}")
+        popup.attributes("-topmost", True)
+        popup.grab_set() # Make modal (disable main window interaction)
+
+        label = tk.Label(popup, text="Good Job! Focus Session Complete.\nWhat would you like to do?", 
+                        font=("Arial", 10), pady=10)
+        label.pack()
+
+        # Option 1: Take a Rest (Start Break Timer)
+        def on_rest():
+            popup.destroy()
+            self.is_distracted = False
+            self.start_break_mode()
+        
+        # Option 2: Play Game (Launch Flappy Bird)
+        def on_play():
+            popup.destroy()
+            # Launch game, then go back to Focus (Game acts as the break)
+            self.manual_game_launch(next_mode="focus") 
+
+        # Option 3: Continue (Skip Break)
+        def on_continue():
+            popup.destroy()
+            self.is_distracted = False
+            self.start_focus_mode()
+
+        btn_rest = tk.Button(popup, text="☕ Take a Rest", command=on_rest, width=20, bg="#ddffdd")
+        btn_rest.pack(pady=5)
+
+        btn_play = tk.Button(popup, text="🎮 Wanna Play?", command=on_play, width=20, bg="#ddddff")
+        btn_play.pack(pady=5)
+
+        btn_cont = tk.Button(popup, text="⏩ Continue Working", command=on_continue, width=20)
+        btn_cont.pack(pady=5)
+
+        # Handle window close (X button) same as Continue
+        popup.protocol("WM_DELETE_WINDOW", on_continue)
+
+    def start_break_mode(self):
+        self.is_focus_mode = False
+        self.current_timer = self.break_duration
+        self.timer_running = True
+        self.update_face("😎", "Time for a break!")
+        self.run_timer_tick()
+
+    def start_focus_mode(self):
+        self.is_focus_mode = True
+        self.current_timer = self.focus_duration
+        self.timer_running = True
+        self.update_face("😺", "Back to work!")
+        self.run_timer_tick()
+
+    def quit_program(self):
+        """Safely stops listeners and force-kills the app."""
+        print("Exiting ShellShock...")
+        try:
+            if self.mouse_listener: self.mouse_listener.stop()
+            if self.key_listener: self.key_listener.stop()
+        except: pass
+        self.root.destroy()
+        os._exit(0)
 
     def reset_timer(self, *args):
         self.last_activity_time = time.time()
@@ -93,32 +218,26 @@ class ShellShockUI:
 
     def update_face(self, emoji, message):
         if self.is_distracted: return 
-        self.pet_label.config(text=emoji)
-        if message:
-            self.speech_bubble.config(text=message)
-            self.speech_bubble.lift()
-            self.root.after(5000, lambda: self.speech_bubble.lower())
+        try:
+            self.pet_label.config(text=emoji)
+            if message:
+                self.speech_bubble.config(text=message)
+                self.speech_bubble.lift()
+                self.root.after(5000, lambda: self.speech_bubble.lower())
+        except: pass
 
-    def update_stopwatch(self, seconds_left):
-        if seconds_left < 0: seconds_left = 0
-        mins, secs = divmod(int(seconds_left), 60)
-        time_str = f"{mins:02}:{secs:02}"
-        self.timer_label.config(text=time_str)
-        self.timer_label.place(relx=0.8, rely=0.85, anchor="center") 
+    def manual_game_launch(self, next_mode=None):
+        """Launches the game. 
+        Args:
+            next_mode (str): 'focus' to start focus timer after game, None to stay idle.
+        """
+        self.trigger_punishment(manual=True, next_mode=next_mode)
 
-    def hide_stopwatch(self):
-        self.timer_label.place_forget()
-
-    def manual_game_launch(self):
-        # If user clicks, we play the GAME (Manual = True)
-        self.trigger_punishment(manual=True)
-
-    def trigger_punishment(self, manual=False):
-        if self.is_distracted: return
+    def trigger_punishment(self, manual=False, next_mode=None):
+        if self.is_distracted and not manual: return # Avoid double trigger unless manual override
         self.is_distracted = True
-        self.hide_stopwatch() 
         
-        # --- SCENARIO 1: MANUAL GAME (Clicking the Pet) ---
+        # --- MANUAL GAME ---
         if manual:
             self.pet_label.config(text="🎮")
             self.speech_bubble.config(text="Launching Game...")
@@ -130,41 +249,39 @@ class ShellShockUI:
                 base_path = os.path.dirname(os.path.abspath(__file__))
                 game_folder = os.path.join(base_path, "flappy-bird-main")
                 if not os.path.exists(game_folder): raise FileNotFoundError(f"Missing: {game_folder}")
-
                 subprocess.run([sys.executable, "main.py"], cwd=game_folder, check=True)
-                
                 self.root.deiconify() 
                 self.update_face("😹", "Game Over!")
-                time.sleep(3) # Short wait for manual play
+                time.sleep(1)
             except Exception as e:
                 self.root.deiconify()
                 self.update_face("😿", f"Error: {str(e)[:20]}...")
 
-        # --- SCENARIO 2: AUTOMATIC PUNISHMENT (Time's Up) ---
-        else:
-            self.pet_label.config(text="🛑") # Stop Sign or Angry Face
-            self.speech_bubble.config(text="Time's Up!")
-            self.root.update()
-            
-            # --- THE POPUP (Instead of Game) ---
-            messagebox.showwarning(
-                "Time's Up!", 
-                "You have exceeded your break limit.\nClose YouTube and get back to work!"
-            )
-            
-        # Reset State
         self.is_distracted = False
         self.last_activity_time = time.time() 
-        self.update_face("😺", "Okay, back to work.")
+        
+        # Resume Timer Logic based on what happened
+        if next_mode == "focus":
+            self.start_focus_mode()
+        elif self.is_focus_mode:
+            self.update_face("😺", "Okay, back to work.")
+        else:
+            self.update_face("😎", "Chilling...")
 
     def idle_monitor(self):
+        """Monitors for lack of mouse/keyboard activity."""
         while True:
             time.sleep(1)
             if self.is_distracted: continue
             idle_duration = time.time() - self.last_activity_time
-            if idle_duration >= 60:
-                self.pet_label.config(text="😴")
-                if int(idle_duration) % 5 == 0: self.shake_effect() 
+            
+            # If idle for > 60s during FOCUS mode, get angry/shake
+            if idle_duration >= 60 and self.is_focus_mode:
+                try:
+                    self.pet_label.config(text="😴")
+                    if int(idle_duration) % 5 == 0: 
+                        self.root.after(0, self.shake_effect)
+                except: pass
 
     def shake_effect(self):
         try:
@@ -185,16 +302,18 @@ class ShellShockUI:
                 top.update()
                 time.sleep(0.02)
             top.destroy()
-        except: pass
+        except Exception as e:
+            print(f"Shake error: {e}")
 
     def float_animation(self):
-        self.angle += 0.08
-        offset = int(12 * math.sin(self.angle))
-        self.root.geometry(f"+{self.curr_x}+{self.curr_y + offset}")
-        self.root.after(40, self.float_animation)
+        try:
+            self.angle += 0.08
+            offset = int(12 * math.sin(self.angle))
+            self.root.geometry(f"+{self.curr_x}+{self.curr_y + offset}")
+            self.root.after(40, self.float_animation)
+        except: pass
 
     def setup_interactions(self):
-        self.pet_label.bind("<Button-3>", lambda e: self.root.destroy())
         self.drag_start_x = 0
         self.drag_start_y = 0
         self.has_moved = False
